@@ -1,0 +1,53 @@
+[Pullup] 40kg 4x4
+
+// Template:            "Edge Pull" \n:"size"mm \ikg x\i \s [\s..]3
+// Template:            "Edge Pull" \nmm {n:weight}kg x_\i_ \s_ [\s..]5
+// Template:            "Edge Pull" \nmm {num}_kg x_\i_ \s_ [\s..]*
+
+// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string} {..string} {..string}
+// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string 5x}
+// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string}... 
+
+// Template query:      [Edge Pull] 10 44 _         
+// Template query:      [Edge Pull] 10 x 4x
+// Template query:      [Edge Pull] 10 _ _0
+// Template query:      [Edge Pull] 10 44 _ 3f|3b
+// Template query:      [Edge Pull] 10 44 _ 3f&3b
+// Template query:      [Edge Pull] 10 44 _ 3f 3b
+// Template query:      [Edge Pull] 10 44 _ *5
+// Template query:      [Edge Pull] 10 44+(i*2) _ i=(0..5, 2)
+
+------------------------------------------------------------------------------
+
+[Edge Pull :: 19.03.2024 13:45:12] 10mm 44kg 1x20 3f
+[Edge Pull :: 19.03.2024 13:45:13] 10mm 34kg 1x20 3b
+[Edge Pull :: 19.03.2024 13:45:52] 10mm 24kg 1x20 mono_mid
+SESSION: 17.03.2024 #1 PULL
+
+
+
+
+
+TEMPLATE GRAMMAR
+TOKENS:
+
+    entry: name [expression [multiplier]?]* [timestamp]?
+    expression: [text | field]
+    timestamp: -t time
+
+    text: [a-zA-Z0-9 ]*
+    name: "text"
+
+    field: {num}
+           {str}
+           {num..}
+           {str..}
+           {num:text}
+           {str:text}
+           {num..:text}
+           {num..:text}
+
+    sub_expr_multiplier: {1, 2..} + {*}
+    sub_expression: [ expression ] empty | [ expression ] sub_expr_multiplier
+
+
