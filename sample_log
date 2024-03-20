@@ -1,12 +1,12 @@
 [Pullup] 40kg 4x4
 
 // Template:            "Edge Pull" \n:"size"mm \ikg x\i \s [\s..]3
-// Template:            "Edge Pull" \nmm {n:weight}kg x_\i_ \s_ [\s..]5
+// Template:            "Edge Pull" {num}mm {num:weight}kg x{num} {str} [{str}]5
 // Template:            "Edge Pull" \nmm {num}_kg x_\i_ \s_ [\s..]*
 
-// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string} {..string} {..string}
-// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string 5x}
-// Template Display:    [Edge Pull] {int}mm {int}kg {string} {..string}... 
+// Template Display:    [Edge Pull] {num}mm {num}kg {string} {..string} {..string} {..string}
+// Template Display:    [Edge Pull] {num}mm {num}kg {string} {..string 5x}
+// Template Display:    [Edge Pull] {num}mm {num}kg {string} {..string}... 
 
 // Template query:      [Edge Pull] 10 44 _         
 // Template query:      [Edge Pull] 10 x 4x
