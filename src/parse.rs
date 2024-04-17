@@ -104,7 +104,6 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
 
 pub fn parse_template(line: String) -> Template {
     // NAME PARSING
-    //
     let mut line_iterator = line.chars().peekable();
 
     if line_iterator.next() != Some('"') {
@@ -127,7 +126,6 @@ pub fn parse_template(line: String) -> Template {
     };
 
     // Tokenize
-    //
     let mut text = "".to_string();
     let mut text_ref = &mut text;
 
@@ -163,7 +161,6 @@ fn preprocess_line_step(line: String) -> (String, bool) {
     let mut stack = String::new();
 
     let mut rep_count_str = String::new();
-
     let mut escape = false;
 
     for c in line.chars() {
