@@ -103,7 +103,6 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
 }
 
 pub fn parse_template(line: String) -> Template {
-    // NAME PARSING
     let mut line_iterator = line.chars().peekable();
 
     if line_iterator.next() != Some('"') {
@@ -152,6 +151,7 @@ pub fn parse_template(line: String) -> Template {
 }
 
 // Applies all multipliers
+// TODO clean up
 fn preprocess_line_step(line: String) -> (String, bool) {
     let mut level = 0; // nesting level
     let mut after_block = false; // flag for applying multiplier

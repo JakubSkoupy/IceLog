@@ -1,19 +1,22 @@
 use std::{
-    collections::HashSet,
-    io::{self, Read, Write},
+    collections::{binary_heap::Iter, HashMap, HashSet},
+    fmt::write,
+    io::{self, Read, Stdin, Stdout, Write},
     os::fd::AsFd,
     time::SystemTime,
+    usize,
 };
 
 mod build_entry;
+mod context_table;
 mod parse;
-mod terminal_utils;
+mod terminal;
+use anyhow::Result;
 use parse::{parse_template, preprocess_line, Template};
-use termion;
+use terminal::MasterTerminal;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-
-use crate::terminal_utils::tab_complete_simple;
+use termion::{self, raw::RawTerminal};
 
 const DEFAULT_DATA: &str = "./data";
 const DEFAULT_LOG: &str = "log";
@@ -42,115 +45,80 @@ struct LogTemplate {
     template_string: String,
 }
 
-struct TabState<'a> {
-    tab: usize,             // Tab state active, decrements after main loop, increments in tab
-    index: usize,           // Current index in options
-    pool: &'a Vec<&'a str>, // Set of acceptable entries
-    options: Vec<usize>,    // List of potential incides from pool
-}
-
-fn command_log_entry(data: &str) {}
-
-fn log_write(data: LogEntry, filename: &str) {}
-
-fn command_template(data: String) {}
-
-fn tab_complete() {}
-
-/*
- * hot TODO
- * make special write actions into separate functions
- * tab complete into function (With fancy mode)
- * prevent deletion of prefix [DONE]
-*/
-
-enum CommandStates {
-    Exit,
-    Ok,
-    Unknown,
-    Clear,
-}
-
-fn process_command(message: &str) -> CommandStates {
-    match message {
-        "exit" | "quit" => CommandStates::Exit,
-        "clear" => CommandStates::Clear,
-        "log" => CommandStates::Ok,
-        _ => CommandStates::Unknown,
-    }
-}
-
-fn main() {
-    let mut stdout = io::stdout().into_raw_mode().unwrap();
+fn main() -> Result<()> {
+    let stdout = io::stdout().into_raw_mode().unwrap();
     let mut stdin = termion::async_stdin().keys();
-    let mut input_string = String::new();
+    let input_string = " ".to_string();
 
-    let commands = (vec!["cmd", "log", "cm_d"]);
-    let mut tabstate = TabState {
-        tab: 0,
-        index: 0,
-        pool: &commands,
-        options: vec![],
+    let prompt_literal = "IceLog ::";
+
+    let mut master = MasterTerminal {
+        output: stdout,
+        input_string,
+        strindex: 0,
+        prompt: prompt_literal,
+
+        map: None,
+        keys: None,
+        selected: false,
+        option_index: usize::MAX,
     };
-
     /*
      * Completion options will be stored in a hashmap
      * Which associates an action with a selected action
      * for example fetching another table
      */
 
-    terminal_utils::nextline(&mut stdout, "IceLog :: ").unwrap();
-    io::stdout().flush().expect("Failed to flush");
+    let commands = &HashMap::from([("log", 1), ("l", 1)]);
 
+    master.map = Some(commands);
+    master.nextline()?;
+    //io::stdout().flush().expect("Failed to flush");
+
+    // MAIN LOOP
     loop {
         let input_char = stdin.next();
         if let Some(Ok(key)) = input_char {
             match key {
+                // Command Process
                 termion::event::Key::Char('\n') => {
-                    match process_command(input_string.as_str()) {
-                        CommandStates::Exit => break,
-                        CommandStates::Clear => {
-                            terminal_utils::clear(&mut stdout).unwrap();
-                        }
-                        CommandStates::Unknown => print!(" <- Unknown Command"),
-                        CommandStates::Ok => (),
-                        _ => (),
-                    }
-                    terminal_utils::nextline(&mut stdout, "IceLog :: ").unwrap();
-                    input_string.clear();
+                    let string = master.input_string.clone();
+                    println!("\nexecuting: {}", string);
+                    master.nextline()?;
                 }
-                termion::event::Key::Char('\t') => {
-                    tabstate.tab = 2;
-                    let size = input_string.len();
-                    let tab_index = 0;
-                    input_string = tab_complete_simple(&mut input_string, &commands)
-                        .unwrap_or(input_string.clone());
 
-                    print!("{}", &input_string[size..input_string.len()]);
-                    stdout.lock().flush().unwrap();
+                // Tab
+                termion::event::Key::Char('\t') => {
+                    master.tab_next()?;
                 }
-                termion::event::Key::Backspace if input_string.len() > 0 => {
-                    terminal_utils::backspace(&mut stdout).unwrap();
-                    input_string.pop();
+
+                // Backspace
+                termion::event::Key::Backspace if master.input_string.len() > 1 => {
+                    master.tab_complete()?;
+                    master.delete(1)?;
                 }
+
+                // Writing
+                termion::event::Key::Char(x) => {
+                    if let Some(options) = &master.keys {
+                        let option = &options[master.option_index];
+                    }
+                    master.tab_complete()?;
+                    master.write_char(x)?;
+                }
+
+                // Signals
                 termion::event::Key::Ctrl('c') => break,
                 termion::event::Key::Ctrl('l') => {
-                    terminal_utils::clear(&mut stdout).unwrap();
+                    master.clear()?;
+                    master.nextline()?;
                 }
-                termion::event::Key::Char(x) => {
-                    terminal_utils::putchar(&mut stdout, x).unwrap();
-                    input_string.push(x);
-                }
-                _ => (),
-            }
 
-            if tabstate.tab > 0 {
-                tabstate.tab -= 1;
+                // For sake of exhaustiveness
+                _ => (),
             }
         }
     }
-
-    write!(stdout, "{}", termion::cursor::Left(100),).unwrap();
-    stdout.lock().flush().unwrap();
-    println!("");
+    master.exit()?;
+    Ok(())
 }
