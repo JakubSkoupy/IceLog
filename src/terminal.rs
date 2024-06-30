@@ -7,22 +7,24 @@ use std::{
 };
 use termion::{self, raw::RawTerminal};
 
+use crate::context_table::ContextTable;
+
 type CmdMap<'a> = &'a HashMap<&'a str, usize>; // Usually function calls
 
-pub struct MasterTerminal<'a> {
+pub struct MasterTerminal {
     pub output: RawTerminal<Stdout>,
     pub input_string: String,
     pub strindex: u16, // Cursor position
     pub prompt: &'static str,
 
     // TAB fields
-    pub map: Option<CmdMap<'a>>,
+    pub map: ContextTable,
     pub option_index: usize,
     pub selected: bool,            // Selected option (useful for commands esp log)
     pub keys: Option<Vec<String>>, // TODO Iterator
 }
 
-impl<'a> MasterTerminal<'a> {
+impl MasterTerminal {
     fn clear_string(&mut self) {
         self.input_string.clear();
         self.input_string.push_str(" ");
@@ -136,9 +138,8 @@ impl<'a> MasterTerminal<'a> {
         self.input_string.truncate(self.strindex as usize + 1);
         let prefix = self.input_string.split(" ").last();
 
-        match &self.map {
-            None => return Ok(()),
-            Some(map) => match &self.keys {
+        match self.map.get_context() {
+            map => match &self.keys {
                 None => {
                     let options: Vec<&&str> = map.keys().collect();
 

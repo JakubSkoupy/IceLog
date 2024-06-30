@@ -12,6 +12,7 @@ mod context_table;
 mod parse;
 mod terminal;
 use anyhow::Result;
+use context_table::ContextTable;
 use parse::{parse_template, preprocess_line, Template};
 use terminal::MasterTerminal;
 use termion::input::TermRead;
@@ -58,8 +59,12 @@ fn main() -> Result<()> {
         strindex: 0,
         prompt: prompt_literal,
 
-        map: None,
-        keys: None,
+        map: ContextTable {
+            context: 0,
+            table: [&context_table::COMMANDS, &context_table::TEMPLATES],
+        },
+
+        keys: None, // Keys cache
         selected: false,
         option_index: usize::MAX,
     };
@@ -69,9 +74,6 @@ fn main() -> Result<()> {
      * for example fetching another table
      */
 
-    let commands = &HashMap::from([("log", 1), ("l", 1)]);
-
-    master.map = Some(commands);
     master.nextline()?;
     //io::stdout().flush().expect("Failed to flush");
 
