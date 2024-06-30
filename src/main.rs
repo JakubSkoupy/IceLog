@@ -11,6 +11,7 @@ mod build_entry;
 mod context_table;
 mod parse;
 mod terminal;
+mod test_parse;
 use anyhow::Result;
 use context_table::ContextTable;
 use parse::{parse_template, preprocess_line, Template};
@@ -48,20 +49,24 @@ struct LogTemplate {
 
 fn main() -> Result<()> {
     let stdout = io::stdout().into_raw_mode().unwrap();
-    let mut stdin = termion::async_stdin().keys();
-    let input_string = " ".to_string();
 
+    let input_string = " ".to_string();
     let prompt_literal = "IceLog ::";
 
     let mut master = MasterTerminal {
         output: stdout,
+        input: termion::async_stdin().keys(),
         input_string,
         strindex: 0,
         prompt: prompt_literal,
 
         map: ContextTable {
-            context: 0,
-            table: [&context_table::COMMANDS, &context_table::TEMPLATES],
+            context: 1, // COMMANDS, NULLMAP when no completion, stuck state
+            table: [
+                &context_table::NULLMAP,
+                &context_table::COMMANDS,
+                &context_table::TEMPLATES,
+            ],
         },
 
         keys: None, // Keys cache
@@ -79,13 +84,35 @@ fn main() -> Result<()> {
 
     // MAIN LOOP
     loop {
-        let input_char = stdin.next();
+        let input_char = master.input.next();
+
         if let Some(Ok(key)) = input_char {
             match key {
                 // Command Process
                 termion::event::Key::Char('\n') => {
                     let string = master.input_string.clone();
-                    println!("\nexecuting: {}", string);
+                    let substrings: Vec<&str> = string.split(" ").collect();
+                    let cmd = substrings[1];
+
+                    let mut argstring = String::new(); // TODO not like this obviously
+                    for s in &substrings[3..] {
+                        argstring.push_str(s);
+                        argstring.push(' ');
+                    }
+
+                    match cmd {
+                        "log" | "l" => {
+                            master.delete(master.input_string.len().try_into()?)?;
+                            println!("arg: {} ", &argstring);
+
+                            let mut template = parse_template(argstring.clone());
+                            template.name = substrings[2].to_string();
+
+                            println!("TEMPLATE PARSED: {}", template);
+                        }
+                        _ => println!("UNKNOWN COMMAND {}", cmd),
+                    }
+
                     master.nextline()?;
                 }
 

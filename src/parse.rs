@@ -1,5 +1,5 @@
 use core::panic;
-use std::{iter::Peekable, str::Chars, time::SystemTime};
+use std::{fmt, iter::Peekable, str::Chars, time::SystemTime};
 
 fn parse_expression() {}
 fn parse_text() {}
@@ -9,15 +9,46 @@ pub enum TemplateToken {
     Field(Field),
 }
 
+impl fmt::Display for TemplateToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Text(x) => write! {f, "\"{}\"", x},
+            Self::Field(x) => write! {f, "{{{}}}", x},
+        }
+    }
+}
+
 pub enum Field {
     Num(String, bool),
     Str(String, bool),
+}
+
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Field::Num(x, b) => write! {f, "{{num: {}{} }}", (if *b {".."} else {""}),x},
+            Field::Str(x, b) => write! {f, "{{str: {}{} }}", (if *b {".."} else {""}),x},
+        }
+    }
 }
 
 pub struct Template {
     pub name: String,
     pub tokens: Vec<TemplateToken>,
     pub repeat_last: bool,
+}
+
+impl fmt::Display for Template {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let rep = if self.repeat_last { ".." } else { "" };
+
+        let mut string = String::new();
+        for token in &self.tokens {
+            string.push_str(&token.to_string());
+        }
+
+        write! {f, "{} args {} {}", self.name, string, rep}
+    }
 }
 
 fn apply_repetition(line: &str, a: usize, b: usize, repetition: &str) -> String {
@@ -33,7 +64,7 @@ fn apply_repetition(line: &str, a: usize, b: usize, repetition: &str) -> String 
 }
 
 pub fn preprocess_line(line: String, mut depth: usize) -> Option<String> {
-    let mut process = true;
+    let process = true;
     let mut line_next = line;
 
     while process && depth > 0 {
@@ -66,7 +97,10 @@ fn remove_redundant_escapes(line: String) -> String {
 }
 
 fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
-    let mut str_iter = line_iterator.clone();
+    // TODO
+    // Named parameters
+    // range expressions
+    let str_iter = line_iterator.clone();
     let match_str: String = str_iter.collect();
 
     let end_index = match_str.find('}').unwrap();
@@ -87,7 +121,7 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
         Some(n) if keywords_str.contains(&n) => Field::Str("".to_string(), false),
         Some(n) if keywords_str_optional.contains(&n) => Field::Str("".to_string(), true),
         x => {
-            println!("INCORRECT: {}", x.unwrap());
+            println!("INCORRECT: {}", x.unwrap()); // TODO debug only
             panic!();
         }
     };
@@ -103,20 +137,22 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
 }
 
 pub fn parse_template(line: String) -> Template {
-    let mut line_iterator = line.chars().peekable();
+    let line = preprocess_line(line, 20).unwrap();
+    print!("Preprocessed Line: {}", line);
 
-    if line_iterator.next() != Some('"') {
-        panic!();
-    }
+    let mut line_iterator = line.chars().peekable();
     let mut name = "".to_string();
 
-    loop {
-        match line_iterator.peek() {
-            Some('"') => break,
-            Some(_) => name.push(line_iterator.next().unwrap()),
-            None => panic!(),
-        }
-    }
+    // NAME either in " " or first space separated word
+    // Logic temporarily in main
+    // TODO
+
+    //loop {
+    //    match line_iterator.peek() {
+    //        Some(_) => name.push(line_iterator.next().unwrap()),
+    //        None => break,
+    //    }
+    //}
 
     let mut result = Template {
         name,

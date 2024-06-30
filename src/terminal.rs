@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
     io::{Stdout, Write},
 };
-use termion::{self, raw::RawTerminal};
+use termion::{self, raw::RawTerminal, AsyncReader};
 
 use crate::context_table::ContextTable;
 
@@ -13,6 +13,7 @@ type CmdMap<'a> = &'a HashMap<&'a str, usize>; // Usually function calls
 
 pub struct MasterTerminal {
     pub output: RawTerminal<Stdout>,
+    pub input: termion::input::Keys<AsyncReader>,
     pub input_string: String,
     pub strindex: u16, // Cursor position
     pub prompt: &'static str,
@@ -161,6 +162,7 @@ impl MasterTerminal {
         if let Some(keys) = &self.keys {
             self.option_index = match self.option_index {
                 usize::MAX => 0,
+                x if keys.len() == 0 => x,
                 x => (x + 1) % keys.len(),
             };
 
