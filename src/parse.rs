@@ -1,9 +1,6 @@
 use core::panic;
 use std::{fmt, iter::Peekable, str::Chars, time::SystemTime};
 
-fn parse_expression() {}
-fn parse_text() {}
-
 pub enum TemplateToken {
     Text(String),
     Field(Field),
@@ -12,7 +9,7 @@ pub enum TemplateToken {
 impl fmt::Display for TemplateToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Text(x) => write! {f, "\"{}\"", x},
+            Self::Text(x) => write! {f, "{}", x},
             Self::Field(x) => write! {f, "{{{}}}", x},
         }
     }
@@ -54,8 +51,8 @@ impl fmt::Display for Template {
 fn apply_repetition(line: &str, a: usize, b: usize, repetition: &str) -> String {
     let mut result = String::new();
 
-    for _ in (1..repetition.parse().unwrap_or(1)) {
-        for index in (a + 1..b - repetition.len() - 1) {
+    for _ in 1..repetition.parse().unwrap_or(1) {
+        for index in a + 1..b - repetition.len() - 1 {
             result.push(line.chars().nth(index).unwrap());
         }
     }
@@ -96,21 +93,25 @@ fn remove_redundant_escapes(line: String) -> String {
     return result;
 }
 
-fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
+fn parse_field(line_iterator: &mut Peekable<Chars>) -> TemplateToken {
     // TODO
-    // Named parameters
     // range expressions
     let str_iter = line_iterator.clone();
     let match_str: String = str_iter.collect();
 
-    let end_index = match_str.find('}').unwrap();
+    let end_index = match_str.find('}').unwrap(); // If { is unmatched, panics
     let field_string: String = match_str.chars().take(end_index).collect();
-    _ = line_iterator.take(end_index);
+
+    for _ in 0..=end_index {
+        line_iterator.next(); // TODO not a loop
+    }
     let mut words = field_string.split(':');
 
+    // Constants nums
     let keywords_num = vec!["n", "num", "number"];
     let keywords_num_optional = vec!["n..", "num..", "number.."];
 
+    // Constants strings
     let keywords_str = vec!["s", "str", "string"];
     let keywords_str_optional = vec!["s..", "str..", "string.."];
 
@@ -121,6 +122,7 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
         Some(n) if keywords_str.contains(&n) => Field::Str("".to_string(), false),
         Some(n) if keywords_str_optional.contains(&n) => Field::Str("".to_string(), true),
         x => {
+            // SHOULD NEVER HAPPEN
             println!("INCORRECT: {}", x.unwrap()); // TODO debug only
             panic!();
         }
@@ -133,26 +135,35 @@ fn parse_field(line_iterator: &mut Peekable<Chars>) -> Field {
         },
     }
 
-    field
+    TemplateToken::Field(field)
 }
 
 pub fn parse_template(line: String) -> Template {
     let line = preprocess_line(line, 20).unwrap();
-    print!("Preprocessed Line: {}", line);
 
     let mut line_iterator = line.chars().peekable();
-    let mut name = "".to_string();
+    let mut name = "[".to_string();
 
-    // NAME either in " " or first space separated word
-    // Logic temporarily in main
-    // TODO
+    match line_iterator.peek() {
+        Some('"') => loop {
+            match line_iterator.next() {
+                Some('"') => break,
+                Some(x) => name.push(x),
+                None => panic!("Incorrect string"),
+            }
+        },
+        _ => loop {
+            match line_iterator.next() {
+                Some(' ') => {
+                    break;
+                }
+                Some(x) => name.push(x),
+                None => panic!("Incorrect string"),
+            }
+        },
+    }
 
-    //loop {
-    //    match line_iterator.peek() {
-    //        Some(_) => name.push(line_iterator.next().unwrap()),
-    //        None => break,
-    //    }
-    //}
+    name.push_str("]");
 
     let mut result = Template {
         name,
@@ -162,25 +173,25 @@ pub fn parse_template(line: String) -> Template {
 
     // Tokenize
     let mut text = "".to_string();
-    let mut text_ref = &mut text;
 
     loop {
         match line_iterator.peek() {
             // Parse field
             Some('{') => {
-                result.tokens.push(TemplateToken::Text(text));
-                text = "".to_string();
-                text_ref = &mut text;
+                // Save previous
+                result.tokens.push(TemplateToken::Text(text.clone()));
+                text.clear();
 
                 line_iterator.next();
 
-                result
-                    .tokens
-                    .push(TemplateToken::Field(parse_field(&mut line_iterator)));
+                result.tokens.push(parse_field(&mut line_iterator));
             }
             // Text
-            Some(_) => text_ref.push(line_iterator.next().unwrap()),
-            None => break,
+            Some(_) => text.push(line_iterator.next().unwrap()), // TODO unwrap
+            None => {
+                result.tokens.push(TemplateToken::Text(text.clone()));
+                break;
+            }
         }
     }
     result

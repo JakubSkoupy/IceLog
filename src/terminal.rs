@@ -1,10 +1,10 @@
 use anyhow::Result;
-use std::cmp;
 use std::{
     char,
     collections::HashMap,
     io::{Stdout, Write},
 };
+use std::{cmp, usize};
 use termion::{self, raw::RawTerminal, AsyncReader};
 
 use crate::context_table::ContextTable;
@@ -31,7 +31,7 @@ impl MasterTerminal {
         self.input_string.push_str(" ");
     }
 
-    fn flush(&mut self) -> Result<()> {
+    pub fn flush(&mut self) -> Result<()> {
         self.output.lock().flush()?;
         Ok(())
     }
@@ -80,7 +80,7 @@ impl MasterTerminal {
         Ok(())
     }
 
-    fn write_string_complete(&mut self) -> Result<()> {
+    pub fn write_string_complete(&mut self) -> Result<()> {
         write!(
             self.output,
             "{}{}{}{}",
@@ -123,14 +123,26 @@ impl MasterTerminal {
         match &self.keys {
             None => (),
             Some(keys) => {
-                let option = keys[self.option_index].to_string();
+                let option = keys[self.option_index].clone();
+                let opt_str = option.as_str();
+
                 self.strindex += option.len() as u16; // TODO error control
                 self.move_cursor(option.len() as i32)?; // TODO same
 
                 self.keys = None;
                 self.write_string_complete()?;
+                //
+                //let next = (self.map.table).get(opt_str).unwrap();
+                //self.map.switch_context(*next);
             }
         }
+        Ok(())
+    }
+    pub fn tab_cancel(&mut self) -> Result<()> {
+        self.input_string.truncate(self.strindex as usize + 1);
+        self.option_index = usize::MAX;
+        self.keys = None;
+        self.write_string_complete()?;
         Ok(())
     }
 

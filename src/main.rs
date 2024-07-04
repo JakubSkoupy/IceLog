@@ -1,6 +1,7 @@
 use std::{
     collections::{binary_heap::Iter, HashMap, HashSet},
     fmt::write,
+    fs::{File, OpenOptions},
     io::{self, Read, Stdin, Stdout, Write},
     os::fd::AsFd,
     time::SystemTime,
@@ -33,7 +34,11 @@ const DEFAULT_TEMPLATES: &str = "templates";
  *      select template
 */
 
-fn prepare_files(data: &str, log: &str, templates: &str) {}
+struct Files<'a> {
+    log: &'a str,       // Append to this file
+    templates: &'a str, // Templates from here
+    debug_log: &'a str, // Errors
+}
 
 struct LogEntry {
     name: String,
@@ -48,6 +53,12 @@ struct LogTemplate {
 }
 
 fn main() -> Result<()> {
+    let files = Files {
+        log: "./log.ini",
+        templates: "./templates.ini",
+        debug_log: "./debug_log",
+    };
+
     let stdout = io::stdout().into_raw_mode().unwrap();
 
     let input_string = " ".to_string();
@@ -85,7 +96,6 @@ fn main() -> Result<()> {
     // MAIN LOOP
     loop {
         let input_char = master.input.next();
-
         if let Some(Ok(key)) = input_char {
             match key {
                 // Command Process
@@ -95,21 +105,42 @@ fn main() -> Result<()> {
                     let cmd = substrings[1];
 
                     let mut argstring = String::new(); // TODO not like this obviously
-                    for s in &substrings[3..] {
+                    for s in &substrings[2..] {
                         argstring.push_str(s);
                         argstring.push(' ');
                     }
 
+                    // TODO
+                    // For now, completely isolate command parsing from tab-completion
+                    // Just switch the context table. There will be an array of bools
+                    // for indices of the current context table. When there is only one
+                    // remaining option, the context will switch automatically
+                    //
+                    // Potentially make this into a lib
+
+                    // Move this into a separate function. The master terminal probably
+                    // needs to be borrowed for command processing
                     match cmd {
                         "log" | "l" => {
                             master.delete(master.input_string.len().try_into()?)?;
-                            println!("arg: {} ", &argstring);
+                            let template = parse_template(argstring.clone());
 
-                            let mut template = parse_template(argstring.clone());
-                            template.name = substrings[2].to_string();
+                            let entry = build_entry::process_template(template, &mut master)?;
+                            {
+                                let mut file = OpenOptions::new()
+                                    .write(true)
+                                    .append(true)
+                                    .open(files.log)
+                                    .unwrap();
+                                file.write((entry.clone() + "\n").as_bytes())?;
+                            }
 
-                            println!("TEMPLATE PARSED: {}", template);
+                            master.nextline()?;
+                            println!("LOGGING: {}", entry);
                         }
+                        //"cat" => {
+                        //    let mut file = OpenOptions::new().read(true).open(files.log).unwrap();
+                        //}
                         _ => println!("UNKNOWN COMMAND {}", cmd),
                     }
 
@@ -119,6 +150,11 @@ fn main() -> Result<()> {
                 // Tab
                 termion::event::Key::Char('\t') => {
                     master.tab_next()?;
+                }
+
+                // Escape
+                termion::event::Key::Esc => {
+                    master.tab_cancel()?;
                 }
 
                 // Backspace
